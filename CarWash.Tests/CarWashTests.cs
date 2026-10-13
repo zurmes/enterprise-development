@@ -7,13 +7,11 @@ namespace CarWash.Tests;
 /// </summary>
 public class CarWashTests(CarWashFixture fixture) : IClassFixture<CarWashFixture>
 {
-    private readonly CarWashFixture _fixture = fixture;
-
     /// <summary>
     /// Вывести топ 5 клиентов по количеству посещений
     /// </summary>
     [Fact]
-    public void GetTop5Clients_ReturnsCorrectOrder()
+    public void GetTop5Clients_WhenCalled_ReturnsClientsOrderedByVisits()
     {
         List<string> expectedNames =
         [
@@ -24,7 +22,7 @@ public class CarWashTests(CarWashFixture fixture) : IClassFixture<CarWashFixture
             "Кузнецов Дмитрий Николаевич"
         ];
 
-        var actualNames = _fixture.Orders
+        var actualNames = fixture.Orders
             .GroupBy(o => o.Client)
             .OrderByDescending(g => g.Count())
             .ThenBy(g => g.Key.Id)
@@ -39,7 +37,7 @@ public class CarWashTests(CarWashFixture fixture) : IClassFixture<CarWashFixture
     /// Вывести информацию об автомобилях, находящихся на мойке в данный момент
     /// </summary>
     [Fact]
-    public void GetCurrentCarsAtWash_ReturnsActiveCars()
+    public void GetCurrentCarsAtWash_WhenTimeIsSpecified_ReturnsActiveCars()
     {
         var currentTime = new DateTime(2026, 6, 1, 10, 15, 0);
 
@@ -51,7 +49,7 @@ public class CarWashTests(CarWashFixture fixture) : IClassFixture<CarWashFixture
             "С302СС363"
         ];
 
-        var actualPlates = _fixture.Orders
+        var actualPlates = fixture.Orders
             .Where(o => o.StartTime <= currentTime && currentTime < o.StartTime.AddMinutes(o.Service.DurationMinutes))
             .Select(o => o.Car.LicensePlate)
             .OrderBy(plate => plate)
@@ -64,7 +62,7 @@ public class CarWashTests(CarWashFixture fixture) : IClassFixture<CarWashFixture
     /// Вывести 5 самых популярных услуг
     /// </summary>
     [Fact]
-    public void GetTop5PopularServices_ReturnsCorrectServices()
+    public void GetTop5PopularServices_WhenCalled_ReturnsServicesOrderedByPopularity()
     {
         List<string> expectedServices =
         [
@@ -75,7 +73,7 @@ public class CarWashTests(CarWashFixture fixture) : IClassFixture<CarWashFixture
             "Мойка грузовика"
         ];
 
-        var actualServices = _fixture.Orders
+        var actualServices = fixture.Orders
             .GroupBy(o => o.Service)
             .OrderByDescending(g => g.Count())
             .ThenBy(g => g.Key.Id)
@@ -90,22 +88,22 @@ public class CarWashTests(CarWashFixture fixture) : IClassFixture<CarWashFixture
     /// Узнать для выбранного бокса мойки, начиная с какого времени он освобождается
     /// </summary>
     [Fact]
-    public void GetBoxFreeTime_ReturnsNextAvailableTime()
+    public void GetBoxFreeTime_WhenBoxIsBusy_ReturnsNextAvailableTime()
     {
         var targetBox = 1;
         var currentTime = new DateTime(2026, 6, 1, 10, 10, 0);
         var expectedFreeTime = new DateTime(2026, 6, 1, 10, 20, 0);
 
-        var busyOrders = _fixture.Orders
+        var busyOrders = fixture.Orders
             .Where(o => o.BoxNumber == targetBox && o.StartTime.AddMinutes(o.Service.DurationMinutes) > currentTime)
             .OrderBy(o => o.StartTime)
             .ToList();
 
-        DateTime freeTime = currentTime;
+        var freeTime = currentTime;
 
-        foreach (Order order in busyOrders)
+        foreach (var order in busyOrders)
         {
-            DateTime orderEndTime = order.StartTime.AddMinutes(order.Service.DurationMinutes);
+            var orderEndTime = order.StartTime.AddMinutes(order.Service.DurationMinutes);
 
             if (order.StartTime <= freeTime)
             {
@@ -127,21 +125,26 @@ public class CarWashTests(CarWashFixture fixture) : IClassFixture<CarWashFixture
     /// Для каждой услуги вывести суммарную выручку
     /// </summary>
     [Fact]
-    public void GetRevenueForEachService_CalculatesTotalRevenue()
+    public void GetRevenueForEachService_WhenCalled_CalculatesTotalRevenueCorrectly()
     {
-        var revenueByService = _fixture.Orders
+        var expectedRevenue = new Dictionary<string, decimal>
+        {
+            ["Экспресс-мойка"] = 3000m,
+            ["Комплексная мойка"] = 5600m,
+            ["Стандартная мойка SUV"] = 3300m,
+            ["Химчистка салона"] = 9000m,
+            ["Мойка грузовика"] = 5600m,
+            ["Полировка кузова"] = 3500m,
+            ["Мойка двигателя"] = 1200m,
+            ["Обработка воском"] = 500m,
+            ["Мойка днища"] = 900m,
+            ["Мойка минивэна"] = 1800m
+        };
+
+        var actualRevenue = fixture.Orders
             .GroupBy(o => o.Service.Name)
             .ToDictionary(g => g.Key, g => g.Sum(o => o.Service.Price));
 
-        Assert.Equal(3000m, revenueByService["Экспресс-мойка"]);
-        Assert.Equal(5600m, revenueByService["Комплексная мойка"]);
-        Assert.Equal(3300m, revenueByService["Стандартная мойка SUV"]);
-        Assert.Equal(9000m, revenueByService["Химчистка салона"]);
-        Assert.Equal(5600m, revenueByService["Мойка грузовика"]);
-        Assert.Equal(3500m, revenueByService["Полировка кузова"]);
-        Assert.Equal(1200m, revenueByService["Мойка двигателя"]);
-        Assert.Equal(500m, revenueByService["Обработка воском"]);
-        Assert.Equal(900m, revenueByService["Мойка днища"]);
-        Assert.Equal(1800m, revenueByService["Мойка минивэна"]);
+        Assert.Equal(expected: expectedRevenue, actual: actualRevenue);
     }
 }
